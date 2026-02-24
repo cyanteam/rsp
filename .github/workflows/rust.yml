@@ -1,0 +1,102 @@
+name: Rust
+
+on:
+  push:
+    branches: [ "0.0.1-test" ]
+    tags:
+      - 'v*'
+  pull_request:
+    branches: [ "0.0.1-test" ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest, macos-14]
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            platform: linux-amd64
+            extension: ""
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            platform: windows-amd64
+            extension: .exe
+          - os: macos-latest
+            target: x86_64-apple-darwin
+            platform: macos-amd64
+            extension: ""
+          - os: macos-14
+            target: aarch64-apple-darwin
+            platform: macos-arm64
+            extension: ""
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Get version
+      id: get_version
+      run: |
+        if [[ "${{ github.ref }}" == refs/tags/* ]]; then
+          VERSION=${GITHUB_REF#refs/tags/}
+        else
+          VERSION=$(git describe --tags --always --dirty)
+        fi
+        echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+      shell: bash
+    
+    - name: Get current date
+      id: date
+      run: echo "DATE=$(date +'%Y%m%d-%H%M%S')" >> $GITHUB_OUTPUT
+      shell: bash
+    
+    - name: Install Rust toolchain
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+        target: ${{ matrix.target }}
+        override: true
+    
+    - name: Build
+      run: cargo build --verbose --release --target ${{ matrix.target }}
+    
+    - name: Run tests
+      run: cargo test --verbose --target ${{ matrix.target }}
+    
+    - name: Prepare artifact
+      id: prepare_artifact
+      run: |
+        ARTIFACT_NAME="rsp-${{ matrix.platform }}-${{ steps.get_version.outputs.VERSION }}-${{ steps.date.outputs.DATE }}${{ matrix.extension }}"
+        cp "target/${{ matrix.target }}/release/rsp${{ matrix.extension }}" "$ARTIFACT_NAME"
+        echo "ARTIFACT_NAME=$ARTIFACT_NAME" >> $GITHUB_OUTPUT
+      shell: bash
+    
+    - name: Upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ steps.prepare_artifact.outputs.ARTIFACT_NAME }}
+        path: ${{ steps.prepare_artifact.outputs.ARTIFACT_NAME }}
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    
+    steps:
+    - name: Download all artifacts
+      uses: actions/download-artifact@v4
+      with:
+        path: artifacts
+        
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      with:
+        files: artifacts/**/*
+        generate_release_notes: true
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
