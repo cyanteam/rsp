@@ -1,0 +1,95 @@
+<%@ once_cell %>
+<%@ dep rusqlite = { version = "0.32", features = ["bundled"] } %>
+<%@ use rusqlite::Connection %>
+<%@ use std::sync::Mutex %>
+<%!
+static DB: Lazy<Mutex<Connection>> = Lazy::new(|| {
+    let conn = Connection::open("examples/forum/forum.db").expect("Failed to open database");
+    conn.execute_batch(r#"
+        CREATE TABLE IF NOT EXISTS posts (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            title TEXT NOT NULL,
+            author TEXT NOT NULL,
+            content TEXT NOT NULL,
+            created_at INTEGER NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS replies (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            post_id INTEGER NOT NULL,
+            author TEXT NOT NULL,
+            content TEXT NOT NULL,
+            created_at INTEGER NOT NULL
+        );
+    "#).ok();
+    Mutex::new(conn)
+});
+%>
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>RSP Forum</title>
+    <style>
+        * { box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; max-width: 900px; margin: 0 auto; padding: 20px; }
+        a { color: #0066cc; text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        .header { border-bottom: 2px solid #0066cc; padding-bottom: 15px; margin-bottom: 30px; }
+        .header h1 { margin: 0; color: #0066cc; }
+        .header p { margin: 5px 0 0; color: #666; }
+        .post-list { list-style: none; padding: 0; }
+        .post-item { padding: 20px 0; border-bottom: 1px solid #eee; }
+        .post-item h3 { margin: 0 0 8px; font-size: 18px; }
+        .post-item h3 a { color: #333; }
+        .post-item h3 a:hover { color: #0066cc; }
+        .post-meta { color: #888; font-size: 14px; }
+        .btn { display: inline-block; padding: 10px 20px; background: #0066cc; color: white; 
+               border-radius: 6px; border: none; cursor: pointer; font-size: 14px; }
+        .btn:hover { background: #0055aa; text-decoration: none; }
+        .empty { text-align: center; padding: 60px 20px; color: #999; background: #f9f9f9; border-radius: 8px; }
+        .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #eee; color: #999; font-size: 13px; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1><a href="index.rsp">RSP Forum</a></h1>
+        <p>A simple forum built with RSP + SQLite</p>
+    </div>
+    
+    <p><a href="new.rsp" class="btn">+ New Post</a></p>
+    
+    <%
+        let conn = DB.lock().unwrap();
+        let mut stmt = conn.prepare(
+            "SELECT id, title, author, created_at FROM posts ORDER BY created_at DESC"
+        ).unwrap();
+        let posts: Vec<_> = stmt.query_map([], |row| {
+            Ok((row.get::<_, i64>(0)?, row.get::<_, String>(1)?, 
+                row.get::<_, String>(2)?, row.get::<_, i64>(3)?))
+        }).unwrap().filter_map(|r| r.ok()).collect();
+    %>
+    
+    <% if posts.is_empty() { %>
+        <div class="empty">
+            <p>No posts yet.</p>
+            <p><a href="new.rsp">Be the first to post!</a></p>
+        </div>
+    <% } else { %>
+        <ul class="post-list">
+        <% for (id, title, author, created_at) in posts { %>
+            <li class="post-item">
+                <h3><a href="post.rsp?id=<%= id %>"><%= escape_html(&title) %></a></h3>
+                <div class="post-meta">
+                    by <strong><%= escape_html(&author) %></strong> · 
+                    <time><%= created_at %></time>
+                </div>
+            </li>
+        <% } %>
+        </ul>
+    <% } %>
+    
+    <div class="footer">
+        Powered by <a href="../demo.rsp">RSP</a> - Rust Server Pages
+    </div>
+</body>
+</html>

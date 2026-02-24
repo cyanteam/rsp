@@ -1,0 +1,106 @@
+<%@ once_cell %>
+<%@ dep rusqlite = { version = "0.32", features = ["bundled"] } %>
+<%@ use rusqlite::Connection %>
+<%@ use std::sync::Mutex %>
+<%!
+static DB: Lazy<Mutex<Connection>> = Lazy::new(|| {
+    let conn = Connection::open("examples/forum/forum.db").expect("Failed to open database");
+    Mutex::new(conn)
+});
+%>
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>New Post - RSP Forum</title>
+    <style>
+        * { box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; max-width: 900px; margin: 0 auto; padding: 20px; }
+        a { color: #0066cc; text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        .header { border-bottom: 2px solid #0066cc; padding-bottom: 15px; margin-bottom: 30px; }
+        .header h1 { margin: 0; color: #0066cc; }
+        h2 { color: #333; }
+        .form-container { max-width: 600px; }
+        .form-group { margin-bottom: 20px; }
+        .form-group label { display: block; margin-bottom: 8px; font-weight: 600; color: #333; }
+        .form-group input, .form-group textarea { 
+            width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 6px; 
+            font-size: 15px; font-family: inherit;
+        }
+        .form-group textarea { min-height: 150px; resize: vertical; }
+        .form-group input:focus, .form-group textarea:focus { 
+            outline: none; border-color: #0066cc; box-shadow: 0 0 0 3px rgba(0,102,204,0.1); 
+        }
+        .btn { padding: 12px 30px; background: #0066cc; color: white; border: none; 
+               border-radius: 6px; cursor: pointer; font-size: 15px; margin-right: 10px; }
+        .btn:hover { background: #0055aa; }
+        .btn-cancel { background: #666; }
+        .btn-cancel:hover { background: #555; }
+        .error { color: #d32f2f; background: #ffebee; padding: 15px 20px; border-radius: 6px; margin-bottom: 20px; }
+        .success { color: #388e3c; background: #e8f5e9; padding: 20px; border-radius: 6px; margin-bottom: 20px; }
+        .back-link { display: inline-block; margin-bottom: 20px; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1><a href="index.rsp">RSP Forum</a></h1>
+    </div>
+    
+    <a href="index.rsp" class="back-link">&larr; Back to list</a>
+    
+    <h2>Create New Post</h2>
+    
+    <% if req.is_post() { %>
+        <%
+            let title = req.post.str("title");
+            let author = req.post.or("author", "Anonymous");
+            let content = req.post.str("content");
+        %>
+        
+        <% if !title.is_empty() && !content.is_empty() { %>
+            <%
+                let now = std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH).unwrap().as_secs() as i64;
+                let conn = DB.lock().unwrap();
+                let result = conn.execute(
+                    "INSERT INTO posts (title, author, content, created_at) VALUES (?1, ?2, ?3, ?4)",
+                    rusqlite::params![title, &author, content, now]
+                );
+            %>
+            
+            <% if result.is_ok() { %>
+                <div class="success">
+                    <strong>Post created successfully!</strong><br>
+                    <a href="index.rsp">View all posts</a>
+                </div>
+            <% } else { %>
+                <div class="error">Failed to create post. Please try again.</div>
+                <a href="new.rsp" class="btn">&larr; Try Again</a>
+            <% } %>
+        <% } else { %>
+            <div class="error">Title and content are required.</div>
+            <a href="new.rsp" class="btn">&larr; Try Again</a>
+        <% } %>
+    <% } else { %>
+        <div class="form-container">
+            <form method="POST" action="new.rsp">
+                <div class="form-group">
+                    <label for="title">Title *</label>
+                    <input type="text" id="title" name="title" required placeholder="Enter post title">
+                </div>
+                <div class="form-group">
+                    <label for="author">Author</label>
+                    <input type="text" id="author" name="author" value="Anonymous">
+                </div>
+                <div class="form-group">
+                    <label for="content">Content *</label>
+                    <textarea id="content" name="content" required placeholder="Write your post content..."></textarea>
+                </div>
+                <button type="submit" class="btn">Create Post</button>
+                <a href="index.rsp" class="btn btn-cancel">Cancel</a>
+            </form>
+        </div>
+    <% } %>
+</body>
+</html>

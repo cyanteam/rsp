@@ -1,0 +1,67 @@
+<%
+    let page = req.get.str("page");
+    
+    if page == "demo" {
+        header_url("demo.rsp");
+    } else if page == "forum" {
+        header_url("forum/index.rsp");
+    } else if page == "request" {
+        header_url("request_info.rsp");
+    } else if page == "response" {
+        header_url("response_test.rsp");
+    }
+%>
+<!DOCTYPE html>
+<html>
+<head>
+    <title>RSP - Rust Server Pages</title>
+    <style>
+        * { box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; 
+               margin: 0; padding: 0; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+               min-height: 100vh; display: flex; align-items: center; justify-content: center; }
+        .container { background: white; border-radius: 16px; padding: 50px; 
+                     max-width: 700px; box-shadow: 0 20px 60px rgba(0,0,0,0.3); }
+        h1 { margin: 0 0 10px; color: #333; font-size: 32px; }
+        .tagline { color: #666; margin-bottom: 30px; font-size: 18px; }
+        .links { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; }
+        .link { display: block; padding: 20px; background: #f8f9fa; 
+                border-radius: 10px; text-decoration: none; color: #333;
+                transition: all 0.2s; border: 2px solid transparent; }
+        .link:hover { border-color: #667eea; transform: translateY(-2px); }
+        .link h3 { margin: 0 0 5px; font-size: 16px; color: #667eea; }
+        .link p { margin: 0; font-size: 14px; color: #666; }
+        .footer { margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; 
+                  text-align: center; color: #999; font-size: 14px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🦀 RSP - Rust Server Pages</h1>
+        <p class="tagline">PHP-like template engine for Rust</p>
+        
+        <div class="links">
+            <a href="?page=demo" class="link">
+                <h3>📚 Demo</h3>
+                <p>Template syntax examples</p>
+            </a>
+            <a href="?page=request" class="link">
+                <h3>🔍 Request Info</h3>
+                <p>GET, POST, Cookies, Headers</p>
+            </a>
+            <a href="?page=response" class="link">
+                <h3>📤 Response Control</h3>
+                <p>Redirect, Status, Cookies</p>
+            </a>
+            <a href="?page=forum" class="link">
+                <h3>💬 Forum</h3>
+                <p>SQLite database example</p>
+            </a>
+        </div>
+        
+        <div class="footer">
+            Powered by RSP · Rust Server Pages
+        </div>
+    </div>
+</body>
+</html>

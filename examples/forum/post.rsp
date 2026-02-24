@@ -1,0 +1,160 @@
+<%@ once_cell %>
+<%@ dep rusqlite = { version = "0.32", features = ["bundled"] } %>
+<%@ use rusqlite::Connection %>
+<%@ use std::sync::Mutex %>
+<%!
+static DB: Lazy<Mutex<Connection>> = Lazy::new(|| {
+    let conn = Connection::open("examples/forum/forum.db").expect("Failed to open database");
+    Mutex::new(conn)
+});
+%>
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Post - RSP Forum</title>
+    <style>
+        * { box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; max-width: 900px; margin: 0 auto; padding: 20px; }
+        a { color: #0066cc; text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        .header { border-bottom: 2px solid #0066cc; padding-bottom: 15px; margin-bottom: 30px; }
+        .header h1 { margin: 0; color: #0066cc; }
+        .post { background: #f9f9f9; border-radius: 8px; padding: 25px; margin-bottom: 30px; }
+        .post h2 { margin: 0 0 15px; color: #333; }
+        .post-meta { color: #666; font-size: 14px; margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px solid #ddd; }
+        .post-content { white-space: pre-wrap; line-height: 1.7; }
+        .replies { margin: 30px 0; }
+        .reply { border-left: 3px solid #0066cc; padding: 15px 20px; margin: 15px 0; background: #fafafa; border-radius: 0 8px 8px 0; }
+        .reply-meta { color: #666; font-size: 14px; margin-bottom: 8px; }
+        .form-section { background: #fff; border: 1px solid #ddd; border-radius: 8px; padding: 25px; margin-top: 30px; }
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; margin-bottom: 5px; font-weight: 600; }
+        .form-group input, .form-group textarea { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; }
+        .form-group textarea { min-height: 100px; resize: vertical; }
+        .btn { padding: 12px 24px; background: #0066cc; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; }
+        .btn:hover { background: #0055aa; }
+        .error { color: #d32f2f; background: #ffebee; padding: 15px; border-radius: 6px; margin-bottom: 20px; }
+        .success { color: #388e3c; background: #e8f5e9; padding: 15px; border-radius: 6px; margin-bottom: 20px; }
+        .back-link { display: inline-block; margin-bottom: 20px; }
+        .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #eee; color: #999; font-size: 13px; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1><a href="index.rsp">RSP Forum</a></h1>
+    </div>
+    
+    <a href="index.rsp" class="back-link">&larr; Back to list</a>
+    
+    <%
+        let post_id: i64 = req.get.str("id").parse().unwrap_or(0);
+    %>
+    
+    <% if post_id == 0 { %>
+        <div class="error">Invalid post ID. <a href="index.rsp">Back to list</a></div>
+    <% } else { %>
+        <%
+            let conn = DB.lock().unwrap();
+            let post: Option<(i64, String, String, String, i64)> = conn.query_row(
+                "SELECT id, title, author, content, created_at FROM posts WHERE id = ?1",
+                [post_id],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?))
+            ).ok();
+        %>
+        
+        <% if post.is_none() { %>
+            <div class="error">Post not found. <a href="index.rsp">Back to list</a></div>
+        <% } else { %>
+            <% let (_, title, author, content, created_at) = post.unwrap(); %>
+            
+            <div class="post">
+                <h2><%= escape_html(&title) %></h2>
+                <div class="post-meta">
+                    by <strong><%= escape_html(&author) %></strong> · <time><%= created_at %></time>
+                </div>
+                <div class="post-content"><%= escape_html(&content) %></div>
+            </div>
+            
+            <%
+                let mut stmt = conn.prepare(
+                    "SELECT author, content, created_at FROM replies WHERE post_id = ?1 ORDER BY created_at"
+                ).unwrap();
+                let replies: Vec<_> = stmt.query_map([post_id], |row| {
+                    Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?, row.get::<_, i64>(2)?))
+                }).unwrap().filter_map(|r| r.ok()).collect();
+            %>
+            
+            <div class="replies">
+                <h3>Replies (<%= replies.len() %>)</h3>
+                <% if replies.is_empty() { %>
+                    <p style="color:#999;">No replies yet. Be the first!</p>
+                <% } else { %>
+                    <% for (reply_author, reply_content, reply_time) in replies { %>
+                        <div class="reply">
+                            <div class="reply-meta">
+                                <strong><%= escape_html(&reply_author) %></strong> · <%= reply_time %>
+                            </div>
+                            <div><%= escape_html(&reply_content) %></div>
+                        </div>
+                    <% } %>
+                <% } %>
+            </div>
+            
+            <%
+                let mut reply_added = false;
+                let mut error_msg = String::new();
+            %>
+            
+            <% if req.is_post() { %>
+                <%
+                    let reply_author = req.post.or("author", "Anonymous");
+                    let reply_content = req.post.str("content");
+                %>
+                
+                <% if !reply_content.is_empty() { %>
+                    <%
+                        let now = std::time::SystemTime::now()
+                            .duration_since(std::time::UNIX_EPOCH).unwrap().as_secs() as i64;
+                        let result = conn.execute(
+                            "INSERT INTO replies (post_id, author, content, created_at) VALUES (?1, ?2, ?3, ?4)",
+                            rusqlite::params![post_id, &reply_author, reply_content, now]
+                        );
+                        reply_added = result.is_ok();
+                        if let Err(e) = result { error_msg = e.to_string(); }
+                    %>
+                <% } else { %>
+                    <% error_msg = "Content is required".to_string(); %>
+                <% } %>
+            <% } %>
+            
+            <div class="form-section">
+                <h3>Add Reply</h3>
+                
+                <% if reply_added { %>
+                    <div class="success">Reply added! <a href="post.rsp?id=<%= post_id %>">Refresh page</a></div>
+                <% } else { %>
+                    <% if !error_msg.is_empty() { %>
+                        <div class="error"><%= escape_html(&error_msg) %></div>
+                    <% } %>
+                    <form method="POST" action="post.rsp?id=<%= post_id %>">
+                        <div class="form-group">
+                            <label>Author</label>
+                            <input type="text" name="author" value="Anonymous">
+                        </div>
+                        <div class="form-group">
+                            <label>Content *</label>
+                            <textarea name="content" required></textarea>
+                        </div>
+                        <button type="submit" class="btn">Post Reply</button>
+                    </form>
+                <% } %>
+            </div>
+        <% } %>
+    <% } %>
+    
+    <div class="footer">
+        Powered by <a href="../demo.rsp">RSP</a> - Rust Server Pages
+    </div>
+</body>
+</html>

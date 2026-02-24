@@ -1,0 +1,84 @@
+<%
+    let name = req.get.or("name", "Guest");
+    let id = req.get.str("id");
+    let page = req.get.or("page", "1");
+%>
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Request Test - RSP</title>
+    <style>
+        body { font-family: system-ui, sans-serif; margin: 40px; max-width: 800px; }
+        h1 { color: #333; }
+        table { border-collapse: collapse; width: 100%; margin: 20px 0; }
+        th, td { border: 1px solid #ddd; padding: 12px; text-align: left; }
+        th { background: #f5f5f5; }
+        code { background: #f0f0f0; padding: 2px 6px; border-radius: 4px; }
+        .test-links a { display: inline-block; margin: 5px 10px 5px 0; padding: 8px 16px; 
+                        background: #0066cc; color: white; text-decoration: none; border-radius: 4px; }
+        .test-links a:hover { background: #0055aa; }
+        .note { background: #fff3e0; padding: 15px; border-radius: 8px; border-left: 4px solid #ff9800; }
+    </style>
+</head>
+<body>
+    <h1>Request Parameter Test</h1>
+    
+    <h2>Current Request</h2>
+    <table>
+        <tr><th>Parameter</th><th>Value</th><th>Method</th></tr>
+        <tr><td>name</td><td><%= escape_html(&name) %></td><td><code>req.get.or("name", "Guest")</code></td></tr>
+        <tr><td>id</td><td><%= if id.is_empty() { "N/A" } else { id } %></td><td><code>req.get.str("id")</code></td></tr>
+        <tr><td>page</td><td><%= page %></td><td><code>req.get.or("page", "1")</code></td></tr>
+        <tr><td>method</td><td><%= req.method() %></td><td><code>req.method()</code></td></tr>
+        <tr><td>path</td><td><%= req.path() %></td><td><code>req.path()</code></td></tr>
+    </table>
+    
+    <h2>API Reference</h2>
+    <table>
+        <tr><th>Syntax</th><th>Returns</th><th>Description</th></tr>
+        <tr>
+            <td><code>&amp;req.get["key"]</code></td>
+            <td><code>&amp;str</code></td>
+            <td>Index syntax, returns empty string if not found</td>
+        </tr>
+        <tr>
+            <td><code>req.get.str("key")</code></td>
+            <td><code>&amp;str</code></td>
+            <td>Same as index, more explicit</td>
+        </tr>
+        <tr>
+            <td><code>req.get.or("key", "default")</code></td>
+            <td><code>String</code></td>
+            <td>Returns default if not found</td>
+        </tr>
+        <tr>
+            <td><code>req.get.get("key")</code></td>
+            <td><code>Option&lt;&amp;String&gt;</code></td>
+            <td>For explicit None handling</td>
+        </tr>
+        <tr>
+            <td><code>req.get_i64("key")</code></td>
+            <td><code>Option&lt;i64&gt;</code></td>
+            <td>Parse as integer</td>
+        </tr>
+    </table>
+    
+    <div class="note">
+        <strong>Note:</strong> Same methods available for <code>req.post</code> for POST parameters.
+    </div>
+    
+    <h2>Test Links</h2>
+    <div class="test-links">
+        <a href="?name=Alice&id=123">name=Alice&id=123</a>
+        <a href="?name=Bob&page=5">name=Bob&page=5</a>
+        <a href="?id=999">id=999</a>
+        <a href="?">Clear params</a>
+    </div>
+    
+    <hr>
+    <p style="color:#666;">
+        <a href="demo.rsp">Back to Demo</a> | 
+        <a href="forum/">Forum Example</a>
+    </p>
+</body>
+</html>

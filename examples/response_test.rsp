@@ -1,0 +1,64 @@
+<%
+    let action = req.get.str("action");
+    
+    if action == "redirect" {
+        header_url("request_info.rsp");
+    } else if action == "setcookie" {
+        SetCookie("name", "RustUser", 3600);
+        SetCookie("session", "abc123xyz", 86400);
+    } else if action == "clearcookie" {
+        CleanCookie("name");
+        CleanCookie("session");
+    } else if action == "404" {
+        header(404);
+    } else if action == "500" {
+        header(500);
+    }
+%>
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Response Control Test</title>
+    <style>
+        body { font-family: system-ui, sans-serif; margin: 40px; max-width: 800px; }
+        .action { display: inline-block; margin: 10px; padding: 15px 25px; 
+                  background: #0066cc; color: white; text-decoration: none; 
+                  border-radius: 6px; }
+        .action:hover { background: #0055aa; }
+        .action.danger { background: #dc3545; }
+        .action.danger:hover { background: #c82333; }
+        h2 { margin-top: 30px; }
+        code { background: #f0f0f0; padding: 2px 6px; border-radius: 4px; }
+    </style>
+</head>
+<body>
+    <h1>Response Control Test</h1>
+    
+    <% if action == "setcookie" { %>
+        <p style="color:green; font-weight:bold;">Cookies set! <a href="request_info.rsp">Check cookies</a></p>
+    <% } else if action == "clearcookie" { %>
+        <p style="color:red; font-weight:bold;">Cookies cleared! <a href="request_info.rsp">Verify</a></p>
+    <% } %>
+    
+    <h2>Redirect</h2>
+    <a href="?action=redirect" class="action">Redirect to request_info.rsp</a>
+    <p>Code: <code>header_url("request_info.rsp")</code></p>
+    
+    <h2>Cookies</h2>
+    <a href="?action=setcookie" class="action">Set Cookies</a>
+    <a href="?action=clearcookie" class="action danger">Clear Cookies</a>
+    <pre>
+SetCookie("name", "RustUser", 3600);    // 1 hour
+SetCookie("session", "abc123", 86400);  // 24 hours
+CleanCookie("name");                     // Delete cookie
+    </pre>
+    
+    <h2>Status Codes</h2>
+    <a href="?action=404" class="action danger">Return 404</a>
+    <a href="?action=500" class="action danger">Return 500</a>
+    <p>Code: <code>header(404)</code> or <code>header(500)</code></p>
+    
+    <h2>Back</h2>
+    <p><a href="request_info.rsp">Back to Request Info</a></p>
+</body>
+</html>

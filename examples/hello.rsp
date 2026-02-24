@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Hello RSP</title>
+    <style>
+        body { font-family: system-ui, sans-serif; margin: 40px; line-height: 1.6; }
+        h1 { color: #333; }
+        ul { padding-left: 20px; }
+        .info { background: #f0f0f0; padding: 15px; border-radius: 8px; }
+    </style>
+</head>
+<body>
+    <h1>Hello, RSP!</h1>
+    
+    <% let name = "World"; %>
+    <p>Hello, <strong><%= name %></strong>!</p>
+    
+    <h2>Loop Example</h2>
+    <ul>
+    <% for i in 0..5 { %>
+        <li>Item <%= i + 1 %></li>
+    <% } %>
+    </ul>
+    
+    <%
+        let sum: i32 = (1..=10).sum();
+        let now: u64 = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+    %>
+    
+    <div class="info">
+        <p>Sum of 1-10: <strong><%= sum %></strong></p>
+        <p>Unix timestamp: <strong><%= now %></strong></p>
+    </div>
+</body>
+</html>

@@ -1,0 +1,23 @@
+[package]
+name = "rsp"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+rsp-runtime = { path = "runtime" }
+libloading = "0.8"
+sha2 = "0.10"
+thiserror = "2"
+clap = { version = "4", features = ["derive"] }
+tokio = { version = "1", features = ["full"] }
+axum = "0.8"
+tower = "0.5"
+tower-http = { version = "0.6", features = ["fs"] }
+walkdir = "2"
+ctrlc = "3"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+toml = "0.8"
+
+[workspace]
+members = ["runtime"]

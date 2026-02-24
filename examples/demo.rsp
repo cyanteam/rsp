@@ -1,0 +1,101 @@
+<%@ once_cell %>
+<%@ use std::sync::atomic::{AtomicUsize, Ordering} %>
+<%!
+static VISITS: AtomicUsize = AtomicUsize::new(0);
+%>
+<!DOCTYPE html>
+<html>
+<head>
+    <title>RSP - Rust Server Pages</title>
+    <style>
+        body { font-family: system-ui, sans-serif; margin: 40px; max-width: 900px; }
+        h1, h2, h3 { color: #333; }
+        pre { background: #1e1e1e; color: #d4d4d4; padding: 16px; border-radius: 8px; overflow-x: auto; }
+        code { background: #f0f0f0; padding: 2px 6px; border-radius: 4px; }
+        .tag { color: #569cd6; }
+        .expr { color: #ce9178; }
+        .counter { background: #e3f2fd; padding: 20px; border-radius: 8px; text-align: center; margin: 20px 0; }
+        .counter span { font-size: 48px; font-weight: bold; color: #1976d2; }
+    </style>
+</head>
+<body>
+    <h1>RSP - Rust Server Pages</h1>
+    <p>PHP-like template engine for Rust, with JSP-style lazy initialization.</p>
+    
+    <%
+        let count = VISITS.fetch_add(1, Ordering::SeqCst) + 1;
+        let now: u64 = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+    %>
+    
+    <div class="counter">
+        <p>Page Visits (this process)</p>
+        <span><%= count %></span>
+    </div>
+    
+    <h2>Template Syntax</h2>
+    
+    <h3>1. Code Blocks <code>&lt;% ... %&gt;</code></h3>
+    <pre>&lt;% let x = 42; %&gt;
+&lt;% for i in 0..3 { %&gt;
+    &lt;li&gt;Item &lt;%= i %&gt;&lt;/li&gt;
+&lt;% } %&gt;</pre>
+    <p>Output:</p>
+    <ul>
+    <% for i in 0..3 { %>
+        <li>Item <%= i %></li>
+    <% } %>
+    </ul>
+    
+    <h3>2. Expressions <code>&lt;%= ... %&gt;</code></h3>
+    <pre>&lt;p&gt;The answer is &lt;%= 6 * 7 %&gt;&lt;/p&gt;</pre>
+    <p>Output: <strong>The answer is <%= 6 * 7 %></strong></p>
+    
+    <h3>3. Request Parameters</h3>
+    <pre>&lt;% let name = &amp;req.get["name"]; %&gt;
+&lt;p&gt;Hello, &lt;%= name %&gt;!&lt;/p&gt;</pre>
+    <p>Try: <a href="?name=Rust">?name=Rust</a> | <a href="?name=RSP">?name=RSP</a></p>
+    <p>Current name: <strong><%= if req.get.str("name").is_empty() { "Guest" } else { req.get.str("name") } %></strong></p>
+    
+    <h3>4. Static Declarations <code>&lt;%! ... %&gt;</code></h3>
+    <pre>&lt;%@ once_cell %&gt;
+&lt;%@ use std::sync::atomic::{AtomicUsize, Ordering} %&gt;
+&lt;%!
+static COUNTER: AtomicUsize = AtomicUsize::new(0);
+%&gt;
+
+&lt;% let n = COUNTER.fetch_add(1, Ordering::SeqCst); %&gt;
+&lt;p&gt;Visit #&lt;%= n %&gt;&lt;/p&gt;</pre>
+    
+    <h3>5. Directives <code>&lt;%@ ... %&gt;</code></h3>
+    <pre>&lt;%@ once_cell %&gt;                        <span class="tag">// Enable lazy static</span>
+&lt;%@ use std::collections::HashMap %&gt;    <span class="tag">// Import module</span>
+&lt;%@ dep serde = "1" %&gt;                  <span class="tag">// Add dependency</span>
+&lt;%@ dep rusqlite = { version = "0.32", features = ["bundled"] } %&gt;</pre>
+    
+    <h3>6. Database Example</h3>
+    <pre>&lt;%@ once_cell %&gt;
+&lt;%@ dep rusqlite = { version = "0.32", features = ["bundled"] } %&gt;
+&lt;%@ use rusqlite::Connection %&gt;
+&lt;%!
+static DB: Lazy&lt;Mutex&lt;Connection&gt;&gt; = Lazy::new(|| {
+    let conn = Connection::open("data.db").unwrap();
+    conn.execute_batch("CREATE TABLE IF NOT EXISTS ...").ok();
+    Mutex::new(conn)
+});
+%&gt;
+
+&lt;% let conn = DB.lock().unwrap(); %&gt;
+&lt;% let count: i64 = conn.query_row("SELECT COUNT(*) FROM users", [], |r| r.get(0)).unwrap_or(0); %&gt;
+&lt;p&gt;Total users: &lt;%= count %&gt;&lt;/p&gt;</pre>
+    
+    <hr>
+    <p style="color:#666;font-size:14px;">
+        Generated at <%= now %> | 
+        <a href="forum/">Forum Example</a> | 
+        <a href="request_test.rsp">Request Test</a>
+    </p>
+</body>
+</html>
